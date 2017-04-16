@@ -3,6 +3,8 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <algorithm>
+#include <limits>
 
 using namespace std;
 
@@ -10,7 +12,9 @@ class KGInt{
   vector<double> weights, nodes;
   vector<int> gnodes, knodes;
 public:
+  int status;
   KGInt(){
+    status = 0;
     nodes = {
       -0.991455371120813, 0.991455371120813,
       -0.949107912342759, 0.949107912342759,
@@ -37,38 +41,75 @@ public:
   double integrate(const function<double(const double&)>&, const double&, const double&, const double & error, int);
 };
 
-double KGInt::integrate(const function<double(const double&)>& f, const double& a, const double& b, const double& error=1e-5, int n=1000)
+double KGInt::integrate(const function<double(const double&)>& f, const double& a, const double& b, const double& error=1e-5, int n=50)
 {
   double A = 0.5*(b-a);
   double B = 0.5*(b+a);
-  double g7 = 0., k8 = 0.;
+  double g7 = 0., k = 0.;
+  double absIntegral =  0.0;
+  vector<double> fs;
+  double t;
   for(const int& i : gnodes){
-    g7 += weights[i]*f(A*nodes[i]+B);
+    t = f(A*nodes[i]+B);
+    fs.push_back(t);
+    g7 += weights[i]*t;
+    absIntegral += weights[i]*abs(t);
   }
+  k = g7;
   for(const int& i : knodes){
-    k8 += weights[i]*f(A*nodes[i]+B);
+    t = f(A*nodes[i]+B);
+    fs.push_back(t);
+    k += weights[i]*t;
+    absIntegral += weights[i]*abs(t);
   }
   
-  if (pow(200*abs(k8-g7), 1.5)>error && n>0){
-    //cout <<"error=" << pow(200*abs(k8-g7), 1.5) <<"; a1="<<a <<"; b1="<<0.5*(a+b)<<"; a2="<<0.5*(a+b)<<"; b2="<<b << endl;
+  double mean = k/2.;
+  double absDiffIntegral = 0.0;
+  for(int i=0;i<weights.size();i++){
+    absDiffIntegral += weights[i]*abs(fs[i]-mean);
+  }
+  
+  absIntegral *= A;
+  absDiffIntegral *= A;
+  
+  double estimatedError = abs(k-g7)*A;
+  
+  if (absDiffIntegral>0.  && estimatedError!=0.){
+    estimatedError = absDiffIntegral*min(1.,pow(estimatedError*200./absDiffIntegral,1.5));
+  }
+  
+  if (absIntegral>numeric_limits<double>::min()/(50.*numeric_limits<double>::epsilon())){
+    estimatedError = max(estimatedError, absIntegral*numeric_limits<double>::min()*50.);
+  }
+  
+  if (estimatedError>error && n>0){
     return integrate(f, a, 0.5*(a+b), error, n-1)+integrate(f, 0.5*(a+b), b, error, n-1);
   }
   
-  return (g7+k8)*A;
+  if (n<1){
+    status=-1;
+  }
+
+  return (k)*A;
 }
 
 
 int main(int argc, char** argv)
 {
     if (argc<4){
-      cerr << "Usage: integrate.exe a b error";
+      cerr << "Usage: integrate.exe alpha R error";
       return -1;
     }
-    cerr << "a=" << argv[1] << "; b="<<argv[2] <<"; error="<<stod(argv[3])<<endl;
+    double alpha = stod(argv[1]);
+    double R = stod(argv[2]);
+    double error = stod(argv[3]);
+    cerr << "alpha="<<alpha <<" ;R="<<R<<"; error="<<error<<endl;
     KGInt m;
     cout << m.integrate(
-                [](const double& x)->double{
-                  return x*sin(x*20)*exp(-pow(x, 0.7)/2);
-                }, stod(argv[1]), stod(argv[2]), stod(argv[3]));
-    return 0;
+                [&alpha, &R](const double& x)->double{
+                  return x*sin(x*R)*exp(-pow(x, alpha));
+                }, 0.0, pow(-log(error),1/alpha), error)<<endl;
+                
+  cout << endl << m.status<<endl;
+  return 0;
 }
