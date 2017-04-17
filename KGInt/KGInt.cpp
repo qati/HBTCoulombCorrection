@@ -11,6 +11,7 @@
 #include <chrono>
 #include <tuple>
 
+#include "KGInt.hpp"
 
 #define M_PI acos(-1.0)
 
@@ -122,18 +123,28 @@ template<class T,int N, int halfN> tuple<double, double> KGInt<T,N, halfN>::inte
   double integral = 0.0;
   double integralError = 0.0;
   int j;
-  int k;
+  int k=1;
+  double integralBefore=0.0;
+  unsigned int conv=0;
+  estimatedError = targetError;
   while(z<b){
     for(j=0;j<1000;j++){
+      if (j!=0) dz *= targetError/estimatedError;
       center     = z+0.5*dz;
       halfLength = 0.5*dz;
       integrateOneStep();
       if (estimatedError<=targetError) break;
-      dz *=targetError/estimatedError;
     }
     integral += integralKronrod;
     integralError += abs(estimatedError);
-    k += 1;
+    if (abs(integralBefore-integral)<targetError){
+        conv += 1;
+        if (conv>50) return make_tuple(integral, integralError/double(k));
+    } else {
+        conv = 0;
+        k += 1;
+    }
+    integralBefore = integral;
     z += dz;
     if (estimatedError<targetError){
       dz *= 2;

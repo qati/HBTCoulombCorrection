@@ -1,0 +1,3 @@
+*.pyd
+*_wrap.cxx
+*.exe

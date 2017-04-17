@@ -3,13 +3,23 @@
 #include <iomanip>
 #include <chrono> 
 
+#include "KGInt.hpp"
+
+#include <thrust/tuple.h>
 #include <nvfunctional>
 #include <float.h>
 #include <nppdefs.h>
 
 #define M_PI acos(-1.0)
 
-template <class T=float, int N=8, int halfN=N/2> class KGInt{
+
+#ifdef DOUBLE_PREC
+typedef double selected;
+#else
+typedef float selected;
+#endif
+
+template <class T=selected, int N=8, int halfN=N/2> class KGInt{
   T weights[N], nodes[N];
   T targetError, estimatedError;
   T integralKronrod, integralGauss, absIntegral, absDiffIntegral;
@@ -46,11 +56,16 @@ public:
           0.20948214108472782801299917489171426369776208022370
     }{
     // Gauss-nodes: 1, 3, 5, 7
+    #ifdef DOUBLE_PREC
     _eps = DBL_EPSILON*50.;
     _min = NPP_MINABS_64F/_eps;
+    #else
+    _eps = FLT_EPSILON*50.;
+    _min = NPP_MINABS_32F/_eps;
+    #endif
   }
   
-   __device__ double integrate(const nvstd::function<void(const T&, T&)>&, const T&, const T&, const T&);
+   __device__ thrust::tuple<double, double> integrate(const nvstd::function<void(const T&, T&)>&, const T&, const T&, const T&);
 };
 
 template<class T, int N, int halfN> __device__ void KGInt<T, N, halfN>::integrateOneStep(){
@@ -104,105 +119,111 @@ template<class T, int N, int halfN> __device__ void KGInt<T, N, halfN>::integrat
 }
 
 
-template<class T,int N, int halfN> __device__ double KGInt<T,N, halfN>::integrate(const nvstd::function<void(const T&, T&)>& f, const T& a, const T& b, const T& error)
+template<class T,int N, int halfN> __device__ thrust::tuple<double,double> KGInt<T,N, halfN>::integrate(const nvstd::function<void(const T&, T&)>& f, const T& a, const T& b, const T& error)
 {  
   func = f;
   targetError = error;
   double z = a;
   double dz = 1e-8;
   double integral = 0.0;
+  double ierror = 0.0;
+  double bintegral =0.0;
   int j=0;
+  int k=1;
+  int count = 0;
+  estimatedError = targetError;
   while(z<b){
     for(j=0;j<1000;j++){
+      if (j!=0) dz *= targetError/estimatedError;
       center     = z+0.5*dz;
       halfLength = 0.5*dz;
       integrateOneStep();
       if (estimatedError<=targetError) break;
-      dz *=targetError/estimatedError;
     }
     integral += integralKronrod;
+    ierror += estimatedError;
+    if (abs(integral-bintegral)<targetError){
+        count += 1;
+        if (count>50){
+            return thrust::make_tuple(integral, ierror/float(k));
+        }
+    } else {
+        count = 0;
+        k += 1;
+    }
+    bintegral = integral;
     z += dz;
     if (estimatedError<targetError){
       dz *= 2;
     }
   }
-  return integral;
+  return thrust::make_tuple(integral, ierror/float(k));
 }
 
 
-
-extern "C" {
-  __global__ void integrate(double * res, double * rs, double * alphas, double * errors, double * errors_rng){
+__global__ void integrate(double * res, selected * rs, selected * alphas, selected * errors, selected * errors_rng){
       int idx = blockDim.x*blockIdx.x+threadIdx.x;
-      KGInt<double> imod;
-      res[idx] = imod.integrate([&alpha=alphas[idx], &r=rs[idx]](const double& x, double& y)->void{
-         y = x*sin(x*r)*exp(-pow(x, alpha));
+      KGInt<selected> imod;
+      auto r = imod.integrate([&alpha=alphas[idx], &r=rs[idx]](const selected& x, selected& y)->void{
+         y = x*sinf(x*r)*expf(-powf(x, alpha));
       }, .0, powf(-logf(errors_rng[idx]),1/alphas[idx]), errors[idx]);
-      res[idx] /= 2*M_PI*M_PI*rs[idx];
-  }
+      res[2*idx] = thrust::get<0>(r)/(2*M_PI*M_PI*rs[idx]);
+      res[2*idx+1] = thrust::get<1>(r)/(2*M_PI*M_PI*rs[idx]);
 }
 
 
-int main(int argc, char **argv)
+double integrate_GPU(const int& N, double * result, double * rs, double * alphas, double *errors, double * error_rngs)
 {
-  if (argc<3){
-    std::cerr << "Pass r and alpha!" << std::endl;
-    return -1;
-  }
-  const int threads = 512, blocks=10;
-  const int N = threads*blocks;
-  
-  double rs[N], alphas[N], *d_rs, *d_alphas;
-  double errors[N], errors_rng[N],  *d_errors, *d_errors_rng;
-  double * d_res;
-  double res[N];
+    selected *d_rs, *d_alphas, *d_errors, *d_error_rngs;
+    double * d_res;
+    
+    cudaMalloc(&d_rs, N*sizeof(selected)); 
+    cudaMalloc(&d_alphas, N*sizeof(selected));
+    cudaMalloc(&d_errors, N*sizeof(selected));
+    cudaMalloc(&d_error_rngs, N*sizeof(selected));
+    cudaMalloc(&d_res, 2*N*sizeof(double));
+    
+    selected * _rs = new selected[N];
+    selected *_alphas = new selected[N];
+    selected * _errors = new selected[N];
+    selected * _error_rngs = new selected[N];
+    for(int i=0;i<N;i++){
+        _rs[i] = (selected)rs[i];
+        _alphas[i] = (selected)alphas[i];
+        _errors[i] = (selected)errors[i];
+        _error_rngs[i] = (selected)error_rngs[i];
+    }
+        
+    cudaMemcpy(d_rs, _rs, N*sizeof(selected), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_alphas, _alphas, N*sizeof(selected), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_errors, _errors, N*sizeof(selected), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_error_rngs, _error_rngs, N*sizeof(selected), cudaMemcpyHostToDevice);
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    if (N>512) integrate<<<int(N/512), 512>>>(d_res,d_rs, d_alphas, d_errors, d_error_rngs);
+    else  integrate<<<1, N>>>(d_res,d_rs, d_alphas, d_errors, d_error_rngs);
+    cudaDeviceSynchronize();
+    auto finish = std::chrono::high_resolution_clock::now();
+    
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess){
+      std::cerr << "Error: "<< cudaGetErrorString(err) << std::endl;
+      return -1.;
+    }
+    
+    cudaMemcpy(result, d_res, 2*N*sizeof(double), cudaMemcpyDeviceToHost);
+    
+    cudaFree(d_rs);
+    cudaFree(d_alphas);
+    cudaFree(d_errors);
+    cudaFree(d_error_rngs);
+    cudaFree(d_res);
+    
+    delete [] _rs;
+    delete [] _alphas;
+    delete [] _errors;
+    delete [] _error_rngs;
 
-  cudaMalloc(&d_rs, N*sizeof(double)); 
-  cudaMalloc(&d_alphas, N*sizeof(double));
-  cudaMalloc(&d_errors, N*sizeof(double));
-  cudaMalloc(&d_errors_rng, N*sizeof(double));
-  cudaMalloc(&d_res, N*sizeof(double));
-
-  for (int i = 0; i < N; i++) {
-    rs[i] = std::stod(argv[1]);
-    alphas[i] = std::stod(argv[2]);
-    errors[i] = 1e-8;
-    errors_rng[i] = 1e-9;
-  }
-  
-  std::cout<<"r="<<rs[0]<<", alpha="<<alphas[0]<<std::endl;
-
-  cudaMemcpy(d_rs, rs, N*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_alphas, alphas, N*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_errors, errors, N*sizeof(double), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_errors_rng, errors_rng, N*sizeof(double), cudaMemcpyHostToDevice);
-
-  auto start = std::chrono::high_resolution_clock::now();
-  integrate<<<blocks, threads>>>(d_res,d_rs, d_alphas, d_errors, d_errors_rng);
-  cudaError_t err = cudaGetLastError();
-  cudaDeviceSynchronize();
-  if (err != cudaSuccess) 
-    std::cerr << "Error: "<< cudaGetErrorString(err) << std::endl;
-  auto finish = std::chrono::high_resolution_clock::now();
-  
-  cudaMemcpy(res, d_res, N*sizeof(double), cudaMemcpyDeviceToHost);
-  
-  cudaFree(d_rs);
-  cudaFree(d_alphas);
-  cudaFree(d_errors);
-  cudaFree(d_errors_rng);
-  cudaFree(d_res);
-  
-  double ti = std::chrono::duration_cast<std::chrono::milliseconds>(finish-start).count();
-  std::cout << "Elapsed time: " << std::setprecision(5)<< ti<< " ms\n";
-  
-  std::cerr << std::setprecision(15) << res[0] << std::endl;
-
-  double a=0.0;
-  for (int i = 1; i < N; i++) {
-    a += abs(res[i]-res[0]);
-  }
-    std::cerr << std::setprecision(15) << a << std::endl; 
-
-  return 0;
+    double ti = std::chrono::duration_cast<std::chrono::milliseconds>(finish-start).count();
+    return ti;
 }
