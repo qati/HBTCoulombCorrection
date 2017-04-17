@@ -1,3 +1,5 @@
 *.pyd
 *_wrap.cxx
 *.exe
+__pycache__/*
+KGInt.py
