@@ -8,6 +8,8 @@
 #include <array>
 #include <iomanip>
 #include <future>
+#include <chrono>
+#include <tuple>
 
 
 #define M_PI acos(-1.0)
@@ -56,7 +58,8 @@ public:
     _min = numeric_limits<T>::min()/_eps;
   }
   
-  double integrate(const function<void(const T&, T&)>&, const T&, const T&, const T&);
+  tuple<double, double> integrate(const function<void(const T&, T&)>&, const T&,  const T&,  const T&);
+  
 };
 
 template<class T, int N, int halfN> void KGInt<T, N, halfN>::integrateOneStep(){
@@ -104,81 +107,68 @@ template<class T, int N, int halfN> void KGInt<T, N, halfN>::integrateOneStep(){
       estimatedError = absDiffIntegral*min(1.,pow(estimatedError*200./absDiffIntegral,1.5));
     }
     
-  /*  cerr << "====================="<<endl;
-    cerr << "center="<<center <<", halfLength="<<halfLength<<endl;
-    cerr << "integralGauss="<<integralGauss<<", integralKronrod="<<integralKronrod<<endl;
-    cerr << "estimatedError="<<estimatedError
-         << ", absIntegral="<<absIntegral
-         << ", absDiffIntegral="<<absDiffIntegral<<endl;
-    cerr<<"==========================="<<endl;*/
-    
     if (absIntegral>_min){
       estimatedError = max(estimatedError, absIntegral*_eps);
     }
 }
 
 
-template<class T,int N, int halfN> double KGInt<T,N, halfN>::integrate(const function<void(const T&, T&)>& f, const T& a, const T& b, const T& error)
+template<class T,int N, int halfN> tuple<double, double> KGInt<T,N, halfN>::integrate(const function<void(const T&, T&)>& f,  const T& a,  const T& b,  const T& error)
 {  
   func = f;
   targetError = error;
   double z = a;
   double dz = 1e-8;
   double integral = 0.0;
-  int j=0;
-  vector<int> sizes;
-  vector<double> estimatedErrors;
+  double integralError = 0.0;
+  int j;
+  int k;
   while(z<b){
-    sizes.push_back(0);
     for(j=0;j<1000;j++){
       center     = z+0.5*dz;
       halfLength = 0.5*dz;
       integrateOneStep();
       if (estimatedError<=targetError) break;
       dz *=targetError/estimatedError;
-      if (sizes[sizes.size()-1]<j) sizes[sizes.size()-1] = j;
-      if (j>998) estimatedErrors.push_back(estimatedError);
     }
     integral += integralKronrod;
+    integralError += abs(estimatedError);
+    k += 1;
     z += dz;
     if (estimatedError<targetError){
       dz *= 2;
     }
   }
-  for(auto ii:sizes){
-    if (ii>0) cerr << ii << " ";
-  }
-  cerr << endl;
-  for(auto ii:estimatedErrors){
-    cerr << ii <<" ";
-  }
-  cerr << endl;
-  return integral;
+  return make_tuple(integral, integralError/double(k));
 }
 
 
-int main(int argc, char** argv)
+double integrate(const int& N, double * result, double * rs, double * alphas, double *errors, double * error_rngs)
 {
-    if (argc<4){
-      cerr << "Usage: integrate.exe alpha R error";
-      return -1;
+    KGInt<double> m[N];
+    
+    vector< function<void(const double&, double&)> > funcs;
+    
+    for(int i=0;i<N;i++){
+        funcs.push_back([&alpha=alphas[i], &r=rs[i]](const double& x, double& y)->void{
+            y = x*sin(x*r)*exp(-pow(x, alpha));
+        });
     }
-    double alpha = stod(argv[1]);
-    double R = stod(argv[2]);
-    double error = stod(argv[3]);
-    cerr << "alpha="<<alpha <<" ;R="<<R<<"; error="<<error<<endl;
-    KGInt<float> m;
     
-    cout << sizeof(m) << endl;
+    vector< future< tuple<double, double> > > tasks;
+    auto start = std::chrono::high_resolution_clock::now();
+    for(int i=0;i<N;i++){
+      tasks.push_back(async(launch::async, &KGInt<double>::integrate, &m[i], funcs[i], 0., pow(-log(error_rngs[i]),1/alphas[i]), errors[i]));
+    }
     
-    auto func = [&alpha, &R](const float& x, float& y)->void{
-       y = x*sin(x*R)*exp(-pow(x, alpha));
-    };
+    for(int i=0;i<N;i++){
+        auto res = tasks[i].get();
+        result[2*i+0] = get<0>(res)/(2*M_PI*M_PI*rs[i]);
+        result[2*i+1] = get<1>(res)/(2*M_PI*M_PI*rs[i]);
+    }
+    auto finish = std::chrono::high_resolution_clock::now();
     
-    auto v1 = async(launch::async, &KGInt<float>::integrate, &m, func, 0.0, pow(-log(1e-8),1/alpha), error);
+    double ti = std::chrono::duration_cast<std::chrono::milliseconds>(finish-start).count();
     
-    double scale = 1./(2*M_PI*M_PI*R);
-
-    cout << setprecision(15) << v1.get()*scale<<endl;      
-    return 0;
+    return ti;
 }
