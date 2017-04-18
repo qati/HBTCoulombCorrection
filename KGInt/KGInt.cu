@@ -231,3 +231,24 @@ double integrate_GPU(const int& N, double * result, double * rs, double * alphas
     double ti = std::chrono::duration_cast<std::chrono::milliseconds>(finish-start).count();
     return ti;
 }
+
+
+std::string setGPU(int device)
+{
+    cudaError_t err;
+    int countDevice;
+    cudaGetDeviceCount(&countDevice);
+    err = cudaGetLastError();
+    if (err != cudaSuccess){
+        return std::string("cudaGetDeviceCount error: ") + std::string(cudaGetErrorString(err));
+    }
+    if (device>=countDevice){
+        return "Unavailable device! You selected device "+std::to_string(device)+" but the cudaDeviceCount="+std::to_string(countDevice);
+    }
+    cudaSetDevice(device);
+    err = cudaGetLastError();
+    if (err != cudaSuccess){
+        return std::string("cudaSetDevice error: ") + std::string(cudaGetErrorString(err));
+    }
+    return "Device "+std::to_string(device)+" selected!";
+}

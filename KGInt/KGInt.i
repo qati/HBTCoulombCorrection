@@ -6,6 +6,7 @@
     #include "KGInt.hpp"
 %}
 
+%include "std_string.i"
 %include "numpy.i"
 
 %init %{
