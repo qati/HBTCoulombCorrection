@@ -10,7 +10,9 @@
 #include <float.h>
 #include <nppdefs.h>
 
+#ifndef M_PI
 #define M_PI acos(-1.0)
+#endif
 
 
 #ifdef DOUBLE_PREC
@@ -164,11 +166,13 @@ template<class T,int N, int halfN> __device__ thrust::tuple<double,double> KGInt
 __global__ void integrate(double * res, selected * rs, selected * alphas, selected * errors, selected * errors_rng){
       int idx = blockDim.x*blockIdx.x+threadIdx.x;
       KGInt<selected> imod;
-      auto r = imod.integrate([&alpha=alphas[idx], &r=rs[idx]](const selected& x, selected& y)->void{
+      selected alpha = alphas[idx];
+      selected r     = rs[idx];
+      auto imv = imod.integrate([&alpha, &r](const selected& x, selected& y)->void{
          y = x*sinf(x*r)*expf(-powf(x, alpha));
       }, .0, powf(-logf(errors_rng[idx]),1/alphas[idx]), errors[idx]);
-      res[2*idx] = thrust::get<0>(r)/(2*M_PI*M_PI*rs[idx]);
-      res[2*idx+1] = thrust::get<1>(r)/(2*M_PI*M_PI*rs[idx]);
+      res[2*idx] = thrust::get<0>(imv)/(2*M_PI*M_PI*rs[idx]);
+      res[2*idx+1] = thrust::get<1>(imv)/(2*M_PI*M_PI*rs[idx]);
 }
 
 

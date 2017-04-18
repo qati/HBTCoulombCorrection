@@ -13,7 +13,9 @@
 
 #include "KGInt.hpp"
 
+#ifndef M_PI
 #define M_PI acos(-1.0)
+#endif
 
 
 using namespace std;
@@ -161,7 +163,7 @@ double integrate(const int& N, double * result, double * rs, double * alphas, do
     vector< function<void(const double&, double&)> > funcs;
     
     for(int i=0;i<N;i++){
-        funcs.push_back([&alpha=alphas[i], &r=rs[i]](const double& x, double& y)->void{
+        funcs.push_back([alpha=alphas[i], r=rs[i]](const double& x, double& y)->void{
             y = x*sin(x*r)*exp(-pow(x, alpha));
         });
     }
