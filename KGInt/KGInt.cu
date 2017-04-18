@@ -176,10 +176,12 @@ __global__ void integrate(double * res, selected * rs, selected * alphas, select
 }
 
 
-double integrate_GPU(const int& N, double * result, double * rs, double * alphas, double *errors, double * error_rngs)
+double integrate_GPU(const int& blockNum, const int& threadNum, double * result, double * rs, double * alphas, double *errors, double * error_rngs)
 {
     selected *d_rs, *d_alphas, *d_errors, *d_error_rngs;
     double * d_res;
+    
+    const int N = blockNum*threadNum;
     
     cudaMalloc(&d_rs, N*sizeof(selected)); 
     cudaMalloc(&d_alphas, N*sizeof(selected));
@@ -204,8 +206,7 @@ double integrate_GPU(const int& N, double * result, double * rs, double * alphas
     cudaMemcpy(d_error_rngs, _error_rngs, N*sizeof(selected), cudaMemcpyHostToDevice);
     
     auto start = std::chrono::high_resolution_clock::now();
-    if (N>512) integrate<<<int(N/512), 512>>>(d_res,d_rs, d_alphas, d_errors, d_error_rngs);
-    else  integrate<<<1, N>>>(d_res,d_rs, d_alphas, d_errors, d_error_rngs);
+    integrate<<<blockNum, threadNum>>>(d_res,d_rs, d_alphas, d_errors, d_error_rngs);
     cudaDeviceSynchronize();
     auto finish = std::chrono::high_resolution_clock::now();
     

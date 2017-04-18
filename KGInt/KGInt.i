@@ -29,12 +29,16 @@
         return integrate(n2, result, rs, alphas, errors, error_rngs);
     }
     
-    double integrate_GPU(int n1, double * result, int n2, double * rs, int n3, double * alphas, int n4, double * errors, int n5, double * error_rngs){
+    double integrate_GPU(int blockNum, int threadNum, int n1, double * result, int n2, double * rs, int n3, double * alphas, int n4, double * errors, int n5, double * error_rngs){
         if ( n2!=n3 || n3!=n4 || n4!=n5){
-            PyErr_Format(PyExc_ValueError, "Array sizes doesn't match (%d, %d, %d, %d, %d)!", n1, n2, n3, n4, n5);
+            PyErr_Format(PyExc_ValueError, "Array sizes doesn't match (%d, %d, %d, %d)!", n2, n3, n4, n5);
             return 0;
         }
-        return integrate_GPU(n2, result, rs, alphas, errors, error_rngs);
+        if ((blockNum*threadNum)!=n2){
+            PyErr_Format(PyExc_ValueError, "Array sizes (%d) doesn't match with blocks(%d)*threads(%d)!", n2, blockNum, threadNum);
+            return 0;
+        }
+        return integrate_GPU(blockNum, threadNum, result, rs, alphas, errors, error_rngs);
     }
 %}
 
@@ -42,12 +46,12 @@
     def integrate(rs, alphas, errors, error_rngs, time=True):
         res = _KGInt.integrate(len(rs)*2, rs, alphas, errors, error_rngs)
         if time:
-            print("Elapsed time: %.1f ms"%res[0])
+            print("->CPU: elapsed time = %.1f ms"%res[0])
         return res[1].reshape(len(rs),2);
         
-    def integrate_GPU(rs, alphas, errors, error_rngs, time=True):
-        res = _KGInt.integrate_GPU(len(rs)*2, rs, alphas, errors, error_rngs)
+    def integrate_GPU(blockNum, threadNum, rs, alphas, errors, error_rngs, time=True):
+        res = _KGInt.integrate_GPU(blockNum, threadNum, len(rs)*2, rs, alphas, errors, error_rngs)
         if time:
-            print("Elapsed time: %.1f ms"%res[0])
+            print("->GPU: elapsed time = %.1f ms"%res[0])
         return res[1].reshape(len(rs),2);
 %}

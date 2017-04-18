@@ -96,6 +96,10 @@ except __builtin__.Exception:
     _newclass = 0
 
 
+def setGPU(device):
+    return _KGInt.setGPU(device)
+setGPU = _KGInt.setGPU
+
 def integrate(*args):
     return _KGInt.integrate(*args)
 integrate = _KGInt.integrate
@@ -107,13 +111,13 @@ integrate_GPU = _KGInt.integrate_GPU
 def integrate(rs, alphas, errors, error_rngs, time=True):
     res = _KGInt.integrate(len(rs)*2, rs, alphas, errors, error_rngs)
     if time:
-        print("Elapsed time: %.1f ms"%res[0])
+        print("->CPU: elapsed time = %.1f ms"%res[0])
     return res[1].reshape(len(rs),2);
 
-def integrate_GPU(rs, alphas, errors, error_rngs, time=True):
-    res = _KGInt.integrate_GPU(len(rs)*2, rs, alphas, errors, error_rngs)
+def integrate_GPU(blockNum, threadNum, rs, alphas, errors, error_rngs, time=True):
+    res = _KGInt.integrate_GPU(blockNum, threadNum, len(rs)*2, rs, alphas, errors, error_rngs)
     if time:
-        print("Elapsed time: %.1f ms"%res[0])
+        print("->GPU: elapsed time = %.1f ms"%res[0])
     return res[1].reshape(len(rs),2);
 
 # This file is compatible with both classic and new-style classes.

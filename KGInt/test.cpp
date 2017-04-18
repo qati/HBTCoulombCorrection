@@ -21,7 +21,7 @@ int main(int argc, char **argv)
   errors[0] = std::stod(argv[3]);
   error_rngs[0] = 1e-9;
   
-  double time = integrate_GPU(1, result, rs, alphas, errors, error_rngs); 
+  double time = integrate_GPU(1,1, result, rs, alphas, errors, error_rngs); 
   
   std::cerr << "-->CUDA" <<std::endl;
   
