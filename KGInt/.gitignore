@@ -3,3 +3,5 @@
 *.exe
 __pycache__/*
 KGInt.py
+test*
+*.a
