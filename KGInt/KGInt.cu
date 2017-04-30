@@ -3,23 +3,34 @@
 #include <iomanip>
 #include <chrono> 
 
-#include "KGInt.hpp"
 
 #include <thrust/tuple.h>
+#include <thrust/complex.h>
+#include <thrust/device_vector.h>
 #include <nvfunctional>
 #include <float.h>
 #include <nppdefs.h>
 
+#include "KGInt.hpp"
+
+using namespace thrust;
+
+#define DOUBLE_PREC
+
+template <class T> using vector= device_vector<T>;
+
 #ifndef M_PI
 #define M_PI acos(-1.0)
 #endif
-
 
 #ifdef DOUBLE_PREC
 typedef double selected;
 #else
 typedef float selected;
 #endif
+
+#include "functions.hpp"
+
 
 template <class T=selected, int N=8, int halfN=N/2> class KGInt{
   T weights[N], nodes[N];
@@ -67,7 +78,7 @@ public:
     #endif
   }
   
-   __device__ thrust::tuple<double, double> integrate(const nvstd::function<void(const T&, T&)>&, const T&, const T&, const T&);
+   __device__ tuple<double, double> integrate(const nvstd::function<void(const T&, T&)>&, const T&, const T&, const T&);
 };
 
 template<class T, int N, int halfN> __device__ void KGInt<T, N, halfN>::integrateOneStep(){
@@ -121,7 +132,7 @@ template<class T, int N, int halfN> __device__ void KGInt<T, N, halfN>::integrat
 }
 
 
-template<class T,int N, int halfN> __device__ thrust::tuple<double,double> KGInt<T,N, halfN>::integrate(const nvstd::function<void(const T&, T&)>& f, const T& a, const T& b, const T& error)
+template<class T,int N, int halfN> __device__ tuple<double,double> KGInt<T,N, halfN>::integrate(const nvstd::function<void(const T&, T&)>& f, const T& a, const T& b, const T& error)
 {  
   func = f;
   targetError = error;
@@ -147,7 +158,7 @@ template<class T,int N, int halfN> __device__ thrust::tuple<double,double> KGInt
     if (abs(integral-bintegral)<targetError){
         count += 1;
         if (count>50){
-            return thrust::make_tuple(integral, ierror/float(k));
+            return make_tuple(integral, ierror/float(k));
         }
     } else {
         count = 0;
@@ -159,24 +170,66 @@ template<class T,int N, int halfN> __device__ thrust::tuple<double,double> KGInt
       dz *= 2;
     }
   }
-  return thrust::make_tuple(integral, ierror/float(k));
+  return make_tuple(integral, ierror/float(k));
 }
 
 
-__global__ void integrate(double * res, selected * rs, selected * alphas, selected * errors, selected * errors_rng){
+__global__ void integrateLevy(double * res, selected * rs, selected * alphas, selected * errors, selected * errors_rng){
       int idx = blockDim.x*blockIdx.x+threadIdx.x;
       KGInt<selected> imod;
       selected alpha = alphas[idx];
       selected r     = rs[idx];
       auto imv = imod.integrate([&alpha, &r](const selected& x, selected& y)->void{
-         y = x*sinf(x*r)*expf(-powf(x, alpha));
-      }, .0, powf(-logf(errors_rng[idx]),1/alphas[idx]), errors[idx]);
-      res[2*idx] = thrust::get<0>(imv)/(2*M_PI*M_PI*rs[idx]);
-      res[2*idx+1] = thrust::get<1>(imv)/(2*M_PI*M_PI*rs[idx]);
+          y = Levy3D(x, alpha, r);
+      }, .0, Levy3D_int_upper_limit(alpha, errors_rng[idx]), errors[idx]);
+      res[2*idx] = get<0>(imv)/(2*M_PI*M_PI*rs[idx]);
+      res[2*idx+1] = get<1>(imv)/(2*M_PI*M_PI*rs[idx]);
+}
+
+__global__ void integrateA(double * res, selected * etas, selected * krs, selected * errors, selected * int_errors){
+      int idx = blockDim.x*blockIdx.x+threadIdx.x;
+      KGInt<selected> imod;
+      selected eta = etas[idx];
+      Hypergeometric<selected> hyp1,hyp2;
+      hyp1.set_eps(errors[idx]);
+      hyp2.set_eps(errors[idx]);
+      hyp1.set_ab(complex<double>(1., eta), complex<double>(1.,0.));
+      hyp2.set_ab(complex<double>(1.,-eta), complex<double>(1.,0.));
+      auto func = [h1=&hyp1,h2=&hyp2,kr=krs[idx] ](const double& y, double& r)->void{
+          r = (   (*h1)(complex<double>(-kr*(1-y)))*(
+                  (*h2)(complex<double>( kr*(1-y)))+
+                  (*h2)(complex<double>( kr*(1+y)))
+          )).real();
+      };
+      
+      auto imv = imod.integrate(func, -1., 1., int_errors[idx]);
+      res[2*idx]   = get<0>(imv)*2*M_PI*eta/(exp(2*M_PI*eta)-1);
+      res[2*idx+1] = get<1>(imv)*2*M_PI*eta/(exp(2*M_PI*eta)-1);
 }
 
 
-double integrate_GPU(const int& blockNum, const int& threadNum, double * result, double * rs, double * alphas, double *errors, double * error_rngs)
+std::string setGPU(int device)
+{
+    cudaError_t err;
+    int countDevice;
+    cudaGetDeviceCount(&countDevice);
+    err = cudaGetLastError();
+    if (err != cudaSuccess){
+        return std::string("cudaGetDeviceCount error: ") + std::string(cudaGetErrorString(err));
+    }
+    if (device>=countDevice){
+        return "Unavailable device! You selected device "+std::to_string(device)+" but the cudaDeviceCount="+std::to_string(countDevice);
+    }
+    cudaSetDevice(device);
+    err = cudaGetLastError();
+    if (err != cudaSuccess){
+        return std::string("cudaSetDevice error: ") + std::string(cudaGetErrorString(err));
+    }
+    return "Device "+std::to_string(device)+" selected!";
+}
+
+
+double integrateLevyGPU(const int& blockNum, const int& threadNum, double * result, double * rs, double * alphas, double *errors, double * error_rngs)
 {
     selected *d_rs, *d_alphas, *d_errors, *d_error_rngs;
     double * d_res;
@@ -206,7 +259,7 @@ double integrate_GPU(const int& blockNum, const int& threadNum, double * result,
     cudaMemcpy(d_error_rngs, _error_rngs, N*sizeof(selected), cudaMemcpyHostToDevice);
     
     auto start = std::chrono::high_resolution_clock::now();
-    integrate<<<blockNum, threadNum>>>(d_res,d_rs, d_alphas, d_errors, d_error_rngs);
+    integrateLevy<<<blockNum, threadNum>>>(d_res,d_rs, d_alphas, d_errors, d_error_rngs);
     cudaDeviceSynchronize();
     auto finish = std::chrono::high_resolution_clock::now();
     
@@ -233,23 +286,59 @@ double integrate_GPU(const int& blockNum, const int& threadNum, double * result,
     return ti;
 }
 
-
-std::string setGPU(int device)
+double integrateAGPU(const int& blockNum, const int& threadNum, double * result, double * etas, double * krs, double *errors, double * int_errors)
 {
-    cudaError_t err;
-    int countDevice;
-    cudaGetDeviceCount(&countDevice);
-    err = cudaGetLastError();
+    selected *d_etas, *d_krs, *d_errors, *d_int_errors;
+    double * d_res;
+    
+    const int N = blockNum*threadNum;
+    
+    cudaMalloc(&d_etas, N*sizeof(selected)); 
+    cudaMalloc(&d_krs, N*sizeof(selected));
+    cudaMalloc(&d_errors, N*sizeof(selected));
+    cudaMalloc(&d_int_errors, N*sizeof(selected));
+    cudaMalloc(&d_res, 2*N*sizeof(double));
+    
+    selected * _etas       = new selected[N];
+    selected * _krs        = new selected[N];
+    selected * _errors     = new selected[N];
+    selected * _int_errors = new selected[N];
+    for(int i=0;i<N;i++){
+        _etas[i]       = (selected)etas[i];
+        _krs[i]        = (selected)krs[i];
+        _errors[i]     = (selected)errors[i];
+        _int_errors[i] = (selected)int_errors[i];
+    }
+        
+    cudaMemcpy(d_etas, _etas, N*sizeof(selected), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_krs,  _krs, N*sizeof(selected), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_errors, _errors, N*sizeof(selected), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_int_errors, _int_errors, N*sizeof(selected), cudaMemcpyHostToDevice);
+    
+    auto start = std::chrono::high_resolution_clock::now();
+    integrateA<<<blockNum, threadNum>>>(d_res,d_etas, d_krs, d_errors, d_int_errors);
+    cudaDeviceSynchronize();
+    auto finish = std::chrono::high_resolution_clock::now();
+    
+    cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess){
-        return std::string("cudaGetDeviceCount error: ") + std::string(cudaGetErrorString(err));
+      std::cerr << "Error: "<< cudaGetErrorString(err) << std::endl;
+      return -1.;
     }
-    if (device>=countDevice){
-        return "Unavailable device! You selected device "+std::to_string(device)+" but the cudaDeviceCount="+std::to_string(countDevice);
-    }
-    cudaSetDevice(device);
-    err = cudaGetLastError();
-    if (err != cudaSuccess){
-        return std::string("cudaSetDevice error: ") + std::string(cudaGetErrorString(err));
-    }
-    return "Device "+std::to_string(device)+" selected!";
+    
+    cudaMemcpy(result, d_res, 2*N*sizeof(double), cudaMemcpyDeviceToHost);
+    
+    cudaFree(d_etas);
+    cudaFree(d_krs);
+    cudaFree(d_errors);
+    cudaFree(d_int_errors);
+    cudaFree(d_res);
+    
+    delete [] _etas;
+    delete [] _krs;
+    delete [] _errors;
+    delete [] _int_errors;
+
+    double ti = std::chrono::duration_cast<std::chrono::milliseconds>(finish-start).count();
+    return ti;
 }

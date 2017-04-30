@@ -1,1 +1,1 @@
-from .KGInt import integrate, integrate_GPU, setGPU
+from .KGInt import *
