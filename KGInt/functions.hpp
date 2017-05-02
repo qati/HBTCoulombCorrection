@@ -49,14 +49,14 @@ template <class T> CUDA_HOSTDEV inline T Levy3D_int_upper_limit(const T& alpha, 
          -108.1767053514369634679, 2.605696505611755827729, -0.7423452510201416151527e-2, 0.5384136432509564062961e-7, -0.4023533141268236372067e-8
      };
      #endif
-     complex<numtype> G, A_g;
-     int i;
  public:
-     CUDA_HOSTDEV const complex<numtype>& operator()(const complex<numtype>& z){
+     CUDA_HOSTDEV  complex<numtype> operator()(const complex<numtype>& z){
          #ifdef __CUDACC__
          using GammaConstsCUDA::g;
          using GammaConstsCUDA::coeff;
          #endif
+         complex<numtype> G, A_g;
+         int i;
          A_g = coeff[0];
          for(i=1;i<N;i++){
              A_g += coeff[i] / (z+numtype(i-1));
@@ -80,10 +80,7 @@ private:
     Gamma<T> gamma;
     T eps;
     complex<T> a,b;
-    complex<T> result1, result2, result3, term1, term2;
-    complex<T> amb,gbdga, gbdgbma;
-    complex<T> g1,g2;
-    unsigned long int n;
+    complex<T> gbdga, gbdgbma;
 public:
     
     CUDA_HOSTDEV Hypergeometric(const T& _eps, const complex<T>& _a, const complex<T>& _b){
@@ -104,54 +101,55 @@ public:
     CUDA_HOSTDEV void set_ab(const complex<T>& _a, const complex<T>& _b){
         a       = _a;
         b       = _b;
-        amb     = a-b;
-        gbdgbma = gamma(b)/gamma(-amb);
+        gbdgbma = gamma(b)/gamma(b-a);
         gbdga   = gamma(b)/gamma(a);
     }
     
     CUDA_HOSTDEV complex<T> operator()(const complex<T>& z){
+        complex<T> result;
         if (abs(z)<30.){
-            result3 = F_series(z);
+            result = F_series(z);
         } else {
-            result3 = F_asym(z);
+            result = F_asym(z);
         }
-        return result3;
+        return result;
     }
 
 private:
-    CUDA_HOSTDEV const complex<T>& F_series(const complex<T>&);
-    CUDA_HOSTDEV const complex<T>& F_asym(const complex<T>&);
-    CUDA_HOSTDEV void G(const complex<T>&);
+    CUDA_HOSTDEV complex<T> F_series(const complex<T>&);
+    CUDA_HOSTDEV complex<T> F_asym(const complex<T>&);
 };
 
 
-template<class T> CUDA_HOSTDEV const complex<T>& Hypergeometric<T>::F_series(const complex<T>& z){
-    result1 = 0.;
-    for(term1=1.,n=0;abs(term1)>eps;++n){
-        result1 += term1;
-        term1 *= (a+complex<T>(n))*z/(b+complex<T>(n))/(n+1.);
+template<class T> CUDA_HOSTDEV complex<T> Hypergeometric<T>::F_series(const complex<T>& z){
+    complex<T> result = 0.;
+    complex<T> term;
+    T n, err;
+    for(term=1.,n=0.,err=1.;err>eps;++n){
+        result += term;
+        err = abs(term)/abs(result);
+        term *= (a+n)*z/(b+n)/(n+1.);
     }
-    return result1;
+    return result;
 }
 
-template<class T> CUDA_HOSTDEV void Hypergeometric<T>::G(const complex<T>& z){
-    g1 = 0.;
-    g2 = 0.;
-    for(term1=1.,term2=1.,n=0;abs(term1)>eps && abs(term2)>eps;++n){
-        g1 += term1;
-        g2 += term2;
+template<class T> CUDA_HOSTDEV complex<T> Hypergeometric<T>::F_asym(const complex<T>& z){
+    complex<T> F1 = gbdgbma*pow(-z,-a),
+               F2 = gbdga*exp(z)*pow(z,a-b);
+    complex<T> result, tmp, term1, term2;
+    T err(1), n;
+    for(term1=1.,term2=1.,n=0.;err>eps;++n){
+        tmp     = F1*term1+F2*term2;
+        result += tmp;
+        err = abs(tmp)/abs(result);
         // a = a, b=a-b+1 ambp1
-        term1 *= ((a+complex<T>(n))*(amb+complex<T>(n+1)))/(-z*(n+1.));
+        term1 *= (  (a+n)*(a-b+1.+n)  ) / ( -z*(n+1.) );
         // a=b-a, b=1.-a,
-        term2 *= ((-amb+complex<T>(n))*(complex<T>(n+1)-a))/(z*(n+1.));
+        term2 *= ( (b-a+n)*(n+1.-a)  ) / (  z*(n+1.) );
     }
+    return result;
 }
 
-template<class T> CUDA_HOSTDEV const complex<T>& Hypergeometric<T>::F_asym(const complex<T>& z){
-    G(z);
-    result2 = gbdgbma*pow(-z,-a)*g1+gbdga*exp(z)*pow(z,amb)*g2;
-    return result2;
-}
 
 /*template< class T, class T2 > CUDA_HOSTDEV const T2& Hypergeometric<T, T2>::FFF(const T& y){
     result1 = 0.;

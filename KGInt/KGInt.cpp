@@ -254,19 +254,6 @@ void hyp1f1_FFF(int n1, double * result, double kr, double eta, double eps)
     }
 }
 
-void hyp1f1(int n1, double * result, double kr, double eta, double eps)
-{
-    Hypergeometric<double> hyp(eps);
-    complex<double> tmp;
-    int N = int(n1/2);
-    double dy = 2./double(N);
-    hyp.set_ab(complex<double>(1., eta), complex<double>(1.,0.));
-    for(int n=0;n<N;n++){
-        tmp = hyp(complex<double>(0., kr*n*dy));
-        result[2*n+0] = tmp.real();
-        result[2*n+1] = tmp.imag();
-    }
-}
 
 void hyp1f1(int n1, double * result, const complex<double>& a, const complex<double>& b, int n2, double* rs, int n3, double* krs, const double& eps){
     Hypergeometric<double> hyp(eps);

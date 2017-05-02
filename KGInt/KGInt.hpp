@@ -35,8 +35,6 @@ double integrateLevyGPU(const int& blockNum, const int& threadNum, double * resu
  */
  void hyp1f1_FFF(int n1, double * result, double kr, double eta, double eps);
  
- void hyp1f1(int n1, double * result, double kr, double eta, double eps);
-
  void hyp1f1(int n1, double * result, const std::complex<double>& a, const std::complex<double>& b, int n2, double* rs, int n3, double* krs, const double& eps=1e-8);
 
 #endif

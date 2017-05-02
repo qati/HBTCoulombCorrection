@@ -87,21 +87,16 @@
     def integrateAGPU(blockNum, threadNum, etas, krs, errors, int_errors, time=True):
         res = _KGInt.integrateAGPU(blockNum, threadNum, len(etas)*2, etas, krs, errors, int_errors)
         if time:
-            print("->CPU: elapsed time = %.1f ms"%res[0])
+            print("->GPU: elapsed time = %.1f ms"%res[0])
         return res[1].reshape(len(etas),2);
     
     def hyp1f1_FFF(n1, kr, eta, eps):
         import numpy as np
         res = _KGInt.hyp1f1_FFF(2*n1, kr, eta, eps)
         return np.array(list(map(complex, res[::2], res[1::2])))
-    
-    def hyp1f1y(n1, kr, eta, eps):
-        import numpy as np
-        res = _KGInt.hyp1f1(2*n1, kr, eta, eps)
-        return np.array(list(map(complex, res[::2], res[1::2])))
         
-    def hyp1f1(a,b,z):
+    def hyp1f1(a,b,z, eps=1e-8):
         import numpy as np
-        res = _KGInt.hyp1f1(2*len(z), a, b, z.real, z.imag)
+        res = _KGInt.hyp1f1(2*len(z), a, b, z.real, z.imag, eps)
         return np.array(list(map(complex, res[::2], res[1::2])))
 %}

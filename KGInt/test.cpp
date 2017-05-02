@@ -59,5 +59,15 @@ int main(int argc, char **argv)
   double ti = std::chrono::duration_cast<std::chrono::milliseconds>(finish-start).count();
   std::cerr << "Elapsed time: " << std::setprecision(2) << ti << " ms" << std::endl;
   //std::cerr << "Result: real=" << std::setprecision(15) << result[0] << ", imag="<<std::setprecision(15) << result[1] << std::endl<<std::endl;
+  
+  Gamma<double> gamma;
+  std::cerr << std::endl<<"------------------" <<std::endl<<"gamma(1+0j)=" << gamma(complex<double>(1.,0))<<std::endl;
+  complex<double> a(0., -0.98), b(1.,0.), z(0., 49);
+  complex<double> F1 = pow(-z,-a)/gamma(b-a),
+             F2 = exp(z)*pow(z,a-b)/gamma(a);
+  cerr << "F1="<<F1 <<", F2="<<F2 << endl;
+  F1 = gamma(b)*pow(-z,-a)/gamma(b-a);
+  F2 = gamma(b)*exp(z)*pow(z,a-b)/gamma(a);
+  cerr << "with gamma(b); F1="<<F1<<", F2="<<F2<<endl;
   return 0;
 }
