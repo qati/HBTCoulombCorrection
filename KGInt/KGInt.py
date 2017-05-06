@@ -96,29 +96,79 @@ except __builtin__.Exception:
     _newclass = 0
 
 
-def setGPU(device):
-    return _KGInt.setGPU(device)
-setGPU = _KGInt.setGPU
+def integrateLevyCPU(*args):
+    return _KGInt.integrateLevyCPU(*args)
+integrateLevyCPU = _KGInt.integrateLevyCPU
 
-def integrate(*args):
-    return _KGInt.integrate(*args)
-integrate = _KGInt.integrate
+def integrateACPU(*args):
+    return _KGInt.integrateACPU(*args)
+integrateACPU = _KGInt.integrateACPU
 
-def integrate_GPU(*args):
-    return _KGInt.integrate_GPU(*args)
-integrate_GPU = _KGInt.integrate_GPU
+def hyp1f1_FFF(n1, kr, eta, eps):
+    return _KGInt.hyp1f1_FFF(n1, kr, eta, eps)
+hyp1f1_FFF = _KGInt.hyp1f1_FFF
 
-def integrate(rs, alphas, errors, error_rngs, time=True):
-    res = _KGInt.integrate(len(rs)*2, rs, alphas, errors, error_rngs)
+def hyp1f1(n1, a, b, n2, n3, eps, x0, x1, N):
+    return _KGInt.hyp1f1(n1, a, b, n2, n3, eps, x0, x1, N)
+hyp1f1 = _KGInt.hyp1f1
+class Levyd(_object):
+    __swig_setmethods__ = {}
+    __setattr__ = lambda self, name, value: _swig_setattr(self, Levyd, name, value)
+    __swig_getmethods__ = {}
+    __getattr__ = lambda self, name: _swig_getattr(self, Levyd, name)
+    __repr__ = _swig_repr
+
+    def __init__(self, R, alpha, limit1, limit2, dr, n, error):
+        this = _KGInt.new_Levyd(R, alpha, limit1, limit2, dr, n, error)
+        try:
+            self.this.append(this)
+        except __builtin__.Exception:
+            self.this = this
+
+    def __call__(self, r):
+        return _KGInt.Levyd___call__(self, r)
+
+    def get(self, n1, n2):
+        return _KGInt.Levyd_get(self, n1, n2)
+    __swig_destroy__ = _KGInt.delete_Levyd
+    __del__ = lambda self: None
+Levyd_swigregister = _KGInt.Levyd_swigregister
+Levyd_swigregister(Levyd)
+
+
+def integrateLevyCPU(rs, alphas, errors, error_rngs, time=True):
+    res = _KGInt.integrateLevyCPU(len(rs)*2, rs, alphas, errors, error_rngs)
     if time:
         print("->CPU: elapsed time = %.1f ms"%res[0])
     return res[1].reshape(len(rs),2);
 
-def integrate_GPU(blockNum, threadNum, rs, alphas, errors, error_rngs, time=True):
-    res = _KGInt.integrate_GPU(blockNum, threadNum, len(rs)*2, rs, alphas, errors, error_rngs)
+#def integrateLevyGPU(blockNum, threadNum, rs, alphas, errors, error_rngs, time=True):
+#    res = _KGInt.integrateLevyGPU(blockNum, threadNum, len(rs)*2, rs, alphas, errors, error_rngs)
+#    if time:
+#        print("->GPU: elapsed time = %.1f ms"%res[0])
+#    return res[1].reshape(len(rs),2);
+
+def integrateACPU(etas, krs, errors, int_errors, time=True):
+    res = _KGInt.integrateACPU(len(etas)*2, etas, krs, errors, int_errors)
     if time:
-        print("->GPU: elapsed time = %.1f ms"%res[0])
-    return res[1].reshape(len(rs),2);
+        print("->CPU: elapsed time = %.1f ms"%res[0])
+    return res[1].reshape(len(etas),2);
+
+#def integrateAGPU(blockNum, threadNum, etas, krs, errors, int_errors, time=True):
+#    res = _KGInt.integrateAGPU(blockNum, threadNum, len(etas)*2, etas, krs, errors, int_errors)
+#    if time:
+#        print("->GPU: elapsed time = %.1f ms"%res[0])
+#    return res[1].reshape(len(etas),2);
+
+def hyp1f1_FFF(n1, kr, eta, eps):
+    import numpy as np
+    res = _KGInt.hyp1f1_FFF(2*n1, kr, eta, eps)
+    return np.array(list(map(complex, res[::2], res[1::2])))
+
+def hyp1f1(a,b,z, x0, x1, N, eps=1e-8):
+    import numpy as np
+    res = _KGInt.hyp1f1(2*len(z), a, b, z.real, z.imag, eps, x0, x1, N)
+    return np.array(list(map(complex, res[::2], res[1::2])))
 
 # This file is compatible with both classic and new-style classes.
 
