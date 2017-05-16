@@ -63,7 +63,7 @@ private:
     T asym_hi(const T&);
     inline T interpolate(const T& r){
         auto low = hash(r);
-        return low;//Lr[low]+(Lr[low+1]-Lr[low])*(r-limit1-dr*low)/dr;
+        return Lr[low]+(Lr[low+1]-Lr[low])*(r-limit1-dr*low)/dr;
     }
 public:
     Levy(const T& R, const T& alpha, const T& limit1, const T& limit2, const T& dr, int n, T * Lrs, const T& error){
@@ -93,6 +93,10 @@ public:
         }
         return;
     }
+
+    inline T get_alpha(){
+        return alpha;
+    }
 };
 
 template<class T> T Levy<T>::asym_low(const T& r){
@@ -113,5 +117,23 @@ template<class T> T Levy<T>::asym_hi(const T& r){
     }
     return -alpha*res/(2*M_PI*M_PI);
 }
+
+
+
+/**
+ * Coulomb correction: 2 particle
+ */
+#include "Coulomb2.hpp"
+
+
+double intLevy(Levy<double> * levy, double maxr, double error);
+/*{
+    KGInt<double> m;
+    auto res = m.integrate([l=levy](const double& r, double& y){
+        y = (*l)(r);
+    }, 0., maxr, error);
+    
+    return get<0>(res);
+}*/
 
 #endif

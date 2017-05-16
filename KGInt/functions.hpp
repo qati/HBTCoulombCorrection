@@ -207,7 +207,7 @@ template<class numtype> const int Gamma<numtype>::N;
      
      CUDA_HOSTDEV complex<T> operator()(const complex<T>& z){
          complex<T> r;
-         if (table && z.imag()<x1 && z.imag()>x0){
+         if (table && abs(z)<x1 && abs(z)>x0){
              r = getFromCache(z);
          } else {
              r = get(z);

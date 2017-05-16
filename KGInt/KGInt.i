@@ -4,6 +4,7 @@
     #define SWIG_FILE_WITH_INIT
     
     #include "KGInt.hpp"
+    #include "Coulomb2.hpp"
 %}
 
 %include "std_string.i"
@@ -63,9 +64,12 @@
 %}
 
 %include "KGInt.hpp"
+%include "Coulomb2.hpp"
 
 
 %template(Levyd) Levy<double>;
+%template(Coulomb2d) Coulomb2<double>;
+
 
 
 %pythoncode %{
