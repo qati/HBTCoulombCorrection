@@ -9,6 +9,8 @@ using namespace std;
 #include "functions.hpp"
 #include "KGInt_class.hpp"
 
+const double HBARC = 197.3269788;
+
 
 template<class T> class Coulomb2 {
 private:
@@ -29,7 +31,7 @@ private:
     normal_distribution<T> normal;
     
     inline complex<T> psi1(const T& r, const T& costheta){
-        return norm*exp(complex<T>(0., k*r))*hyp(complex<T>(0.,-k*r*(1-costheta)));
+        return norm*exp(complex<T>(0., k*r/HBARC))*hyp(complex<T>(0.,-k*r*(1-costheta)/HBARC));
     }
     
     inline complex<T> psi(const T& r, const T& costheta){
@@ -41,7 +43,7 @@ private:
     }
 
     inline T apsi0(const T& r){
-        return 1+cos(2*k*r);
+        return 1+cos(2*k*r/HBARC);
     }
     
     inline T S(const T& r){
