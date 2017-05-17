@@ -14,6 +14,14 @@
 #include <unordered_map>
 
 /**
+ * General functions.
+ */
+template<class T> inline T SQR(const T& x){
+    return x*x;
+}
+
+
+/**
  * 3D Levy
  */
 

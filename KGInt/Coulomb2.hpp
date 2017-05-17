@@ -39,9 +39,9 @@ private:
     inline T apsi(const T& r, const T& costheta){
         return abs( psi(r, costheta) );
     }
-    //TODO: k or 2k 
+
     inline T apsi0(const T& r){
-        return 1+cos(k*r);
+        return 1+cos(2*k*r);
     }
     
     inline T S(const T& r){
@@ -127,12 +127,12 @@ public:
                     ri   = rg;
                     p_ri = p_rg;
                 }
-                s  += apsi(ri, cos(theta))*sin(theta)*ri*ri;
-                s0 += apsi0(ri)*ri*ri;
+                s  += SQR(apsi(ri, cos(theta)))*sin(theta)*ri*ri;
+                s0 += SQR(apsi0(ri*cos(theta)))*sin(theta)*ri*ri;
         }
-        s  *=  M_PI*2*M_PI / T(path);
-        s0 *=  4*M_PI / T(path);
-        return s/s0;
+        //s  *=  M_PI*2*M_PI / T(path);
+        //s0 *=  M_PI*2*M_PI / T(path);
+        return s0/s;
     }
     
     T integrate(const T& _k, const unsigned long long int& path){
