@@ -3,10 +3,10 @@
 # This file builds KGInt module
 
 #building the Python C++ interface
-~/.usr/bin/swig -c++ -python KGInt.i
+swig -c++ -python KGInt.i
 
 # building the CPU implementation with Intel compiler
-g++ -fPIC -std=c++14 -O3 -c KGInt.cpp KGInt_wrap.cxx -I /home/qati/.anaconda3/pkgs/numpy-1.11.1-py35_0/lib/python3.5/site-packages/numpy/core/include -I/home/qati/.anaconda3/include/python3.5m
+g++ -fPIC -std=c++14 -O3 -c KGInt.cpp KGInt_wrap.cxx `python3-config --includes` -I`python3 -c "import numpy; print(numpy.get_include())"`
 
 # building the GPU CUDA implementation
 nvcc -Xcompiler -fPIC -std=c++11 -o KGInt_CUDA.o  -rdc=true -arch sm_50 -m64 -O3 -c KGInt.cu
