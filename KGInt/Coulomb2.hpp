@@ -42,7 +42,7 @@ private:
         return abs( psi(r, costheta) );
     }
 
-    inline T apsi0(const T& r){
+    inline T apsi0SQR(const T& r){
         return 1+cos(2*k*r/HBARC);
     }
     
@@ -130,7 +130,7 @@ public:
                     p_ri = p_rg;
                 }
                 s  += SQR(apsi(ri, cos(theta)))*sin(theta)*ri*ri;
-                s0 += SQR(apsi0(ri*cos(theta)))*sin(theta)*ri*ri;
+                s0 += apsi0SQR(ri*cos(theta) ) *sin(theta)*ri*ri;
         }
         //s  *=  M_PI*2*M_PI / T(path);
         //s0 *=  M_PI*2*M_PI / T(path);
