@@ -91,7 +91,7 @@ public:
     }
     
     void set_R(const T& _R){
-        R = _R;
+        R = _R/pow(2, 1./levy->get_alpha());
     }
     
     T integrateLevy(const T& maxr, const T& error){
