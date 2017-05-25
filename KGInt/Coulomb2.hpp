@@ -1,5 +1,5 @@
-#ifndef __COULONB_HPP__
-#define __COULONB_HPP__
+#ifndef __COULONB2_HPP__
+#define __COULONB2_HPP__
 
 #include <random>
 #include <complex>
@@ -94,7 +94,7 @@ public:
         R = _R/pow(2, 1./levy->get_alpha());
     }
     
-    T integrateLevy(const T& maxr, const T& error){
+/*    T integrateLevy(const T& maxr, const T& error){
         auto res = m.integrate([l=levy](const double& r, double& y){
             y = (*l)(r)*r*r;
         }, 0., maxr, error);
@@ -114,7 +114,7 @@ public:
             }
             result[i] = ri;
         }
-    }
+    }*/
     
     T integrate(const unsigned long long int& path){
         T s = 0.;

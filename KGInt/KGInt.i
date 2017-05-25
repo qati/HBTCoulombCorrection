@@ -5,6 +5,7 @@
     
     #include "KGInt.hpp"
     #include "Coulomb2.hpp"
+    #include "Coulomb3.hpp"
 %}
 
 %include "std_string.i"
@@ -65,10 +66,12 @@
 
 %include "KGInt.hpp"
 %include "Coulomb2.hpp"
+%include "Coulomb3.hpp"
 
 
 %template(Levyd) Levy<double>;
 %template(Coulomb2d) Coulomb2<double>;
+%template(Coulomb3d) Coulomb3<double>;
 
 
 

@@ -125,6 +125,11 @@ template<class T> T Levy<T>::asym_hi(const T& r){
  */
 #include "Coulomb2.hpp"
 
+/**
+ * Coulomb correction: 3 particle
+ */
+#include "Coulomb3.hpp"
+
 
 double intLevy(Levy<double> * levy, double maxr, double error);
 /*{

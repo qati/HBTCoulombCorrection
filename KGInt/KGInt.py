@@ -111,6 +111,10 @@ hyp1f1_FFF = _KGInt.hyp1f1_FFF
 def hyp1f1(n1, a, b, n2, n3, eps, x0, x1, N):
     return _KGInt.hyp1f1(n1, a, b, n2, n3, eps, x0, x1, N)
 hyp1f1 = _KGInt.hyp1f1
+
+def intLevy(levy, maxr, error):
+    return _KGInt.intLevy(levy, maxr, error)
+intLevy = _KGInt.intLevy
 class Levyd(_object):
     __swig_setmethods__ = {}
     __setattr__ = lambda self, name, value: _swig_setattr(self, Levyd, name, value)
@@ -130,10 +134,55 @@ class Levyd(_object):
 
     def get(self, n1, n2):
         return _KGInt.Levyd_get(self, n1, n2)
+
+    def get_alpha(self):
+        return _KGInt.Levyd_get_alpha(self)
     __swig_destroy__ = _KGInt.delete_Levyd
     __del__ = lambda self: None
 Levyd_swigregister = _KGInt.Levyd_swigregister
 Levyd_swigregister(Levyd)
+
+class Coulomb2d(_object):
+    __swig_setmethods__ = {}
+    __setattr__ = lambda self, name, value: _swig_setattr(self, Coulomb2d, name, value)
+    __swig_getmethods__ = {}
+    __getattr__ = lambda self, name: _swig_getattr(self, Coulomb2d, name)
+    __repr__ = _swig_repr
+
+    def __init__(self, _levy, _pion_mass=139.5701835, _eps=1e-8):
+        this = _KGInt.new_Coulomb2d(_levy, _pion_mass, _eps)
+        try:
+            self.this.append(this)
+        except __builtin__.Exception:
+            self.this = this
+
+    def integrateTheta(self, r):
+        return _KGInt.Coulomb2d_integrateTheta(self, r)
+
+    def integrateTheta_MCMC(self, r, path):
+        return _KGInt.Coulomb2d_integrateTheta_MCMC(self, r, path)
+
+    def set_k(self, _k):
+        return _KGInt.Coulomb2d_set_k(self, _k)
+
+    def set_sigma(self, _sigma):
+        return _KGInt.Coulomb2d_set_sigma(self, _sigma)
+
+    def set_R(self, _R):
+        return _KGInt.Coulomb2d_set_R(self, _R)
+
+    def integrateLevy(self, maxr, error):
+        return _KGInt.Coulomb2d_integrateLevy(self, maxr, error)
+
+    def Levy(self, n1, path):
+        return _KGInt.Coulomb2d_Levy(self, n1, path)
+
+    def integrate(self, *args):
+        return _KGInt.Coulomb2d_integrate(self, *args)
+    __swig_destroy__ = _KGInt.delete_Coulomb2d
+    __del__ = lambda self: None
+Coulomb2d_swigregister = _KGInt.Coulomb2d_swigregister
+Coulomb2d_swigregister(Coulomb2d)
 
 
 def integrateLevyCPU(rs, alphas, errors, error_rngs, time=True):
