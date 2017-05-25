@@ -167,8 +167,8 @@ public:
         
         for(unsigned long long int i=0;i<path;i++){
                 
-                rabs_prop[0] = rndnorm(rabs[0]);
-                rabs_prop[1] = rndnorm(rabs[1]);
+                rabs_prop[0] = abs(rndnorm(rabs[0]));
+                rabs_prop[1] = abs(rndnorm(rabs[1]));
                 phig         = uniform_theta(generator);
                 rabs_prop[2] = sqrt(SQR(rabs_prop[0])+SQR(rabs_prop[1])-2*rabs_prop[0]*rabs_prop[1]*cos(phig));
                 
@@ -253,8 +253,8 @@ public:
         
         for(unsigned long long int i=0;i<path;i++){
                 
-                rabs_prop[0] = rndnorm(rabs[0]);
-                rabs_prop[1] = rndnorm(rabs[1]);
+                rabs_prop[0] = abs(rndnorm(rabs[0]));
+                rabs_prop[1] = abs(rndnorm(rabs[1]));
                 phi1g   = uniform_phi(generator);
                 phi2g   = uniform_phi(generator);
                 theta1g = uniform_theta(generator);
@@ -268,7 +268,7 @@ public:
                                 rabs_prop[1]*cos(theta2g));
                 copy(r_prop[2], -1., r_prop[0], -1., r_prop[1]);
                 
-                rhoabs_prop    = rndnorm(rhoabs);
+                rhoabs_prop    = abs(rndnorm(rhoabs));
                 rho_theta_prop = uniform_theta(generator);
                 rho_phi_prop   = uniform_phi(generator);
                 set(rho_prop, rhoabs_prop*sin(rho_theta_prop)*cos(rho_phi_prop),
