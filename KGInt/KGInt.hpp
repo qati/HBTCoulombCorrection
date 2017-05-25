@@ -83,7 +83,7 @@ public:
         T res;
         if (alpha==2.0){
             T sigma = sqrt(2)*R;
-            res = (1./(2*M_PI*SQR(sigma)*sigma*sqrt(2*M_PI)))*exp(-r*r/(2*sigma*sigma));;
+            res = (1./(2*M_PI*sigma*sigma*sigma*sqrt(2*M_PI)))*exp(-r*r/(2*sigma*sigma));;
         }
         else if (r<=limit1) res = asym_low(r);
         else if (r>=limit2) res = asym_hi(r);
