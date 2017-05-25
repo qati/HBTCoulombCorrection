@@ -98,6 +98,9 @@ private:
                      psi1(0,2)*psi1(1,1)*psi1(2,0)
                     )/sqrt(6) );
     }
+    inline T S(const T& r){
+        return (*levy)(r/R)/R/R/R;
+    }
     
     /**
      * constant factor ( sqrt(27)*(2pi)^3 * R^6 )^{-1}
@@ -211,12 +214,103 @@ public:
         return s0/s;
     }
     
+    T integrateFull(const unsigned long long int& path){
+        using param_type = typename decltype(uniform_theta)::param_type;
+
+        T s = 0.;
+        T s0 = 0.;
+        
+        T rabs_prop[3] = {0,0,0}, r_prop[3][3]={{0,0,0},{0,0,0},{0,0,0}};
+        T theta1i(0), theta2i(0), phi1i(0), phi2i(0), phii(0), r1i(0), r2i(0);
+        T theta1g(0), theta2g(0), phi1g(0), phi2g(0), phig(0), r1g(0), r2g(0);
+        T dV;
+        T rhoabs(0.), rho_theta(0.);
+        T rhoabs_prop(0.), rho_phi_prop(0.), rho_theta_prop(0.);
+        T rho_prop[3] = {0,0,0};
+
+        T r1[3] = {0,0,0}, r2[3] = {0,0,0}, r3[3]={0,0,0};
+        auto calcr = [&r1,&r2,&r3](T _rho[3], T _r[3][3]){
+            r1[0] = _rho[0]+2.*_r[0][0]/3.+_r[1][0]/3.;
+            r1[1] = _rho[1]+2.*_r[0][1]/3.+_r[1][1]/3.;
+            r1[2] = _rho[2]+2.*_r[0][2]/3.+_r[1][2]/3.;
+            r2[0] = _rho[0]-1.*_r[0][0]/3.+_r[1][0]/3.;
+            r2[1] = _rho[1]-1.*_r[0][1]/3.+_r[1][1]/3.;
+            r2[2] = _rho[2]-1.*_r[0][2]/3.+_r[1][2]/3.;
+            r3[0] = _rho[0]-1.*_r[0][0]/3.-2.*_r[1][0]/3.;
+            r3[1] = _rho[1]-1.*_r[0][1]/3.-2.*_r[1][1]/3.;
+            r3[2] = _rho[2]-1.*_r[0][2]/3.-2.*_r[1][2]/3.;
+        };
+        
+        auto vnorm = [](T v1[3])->T{
+                return sqrt(SQR(v1[0])+SQR(v1[1])+SQR(v1[2]));
+        };
+        
+        calcr(rho_prop, r_prop);
+        
+        T p_ri = S(vnorm(r1))*S(vnorm(r2))*S(vnorm(r3)), p_rg;
+        copy(rabs, rabs_prop);
+        dcopy(r, r_prop);
+        
+        for(unsigned long long int i=0;i<path;i++){
+                
+                rabs_prop[0] = rndnorm(rabs[0]);
+                rabs_prop[1] = rndnorm(rabs[1]);
+                phi1g   = uniform_phi(generator);
+                phi2g   = uniform_phi(generator);
+                theta1g = uniform_theta(generator);
+                theta2g = uniform_theta(generator);
+                
+                set(r_prop[0],  rabs_prop[0]*sin(theta1g)*cos(phi1g),
+                                rabs_prop[0]*sin(theta1g)*sin(phi1g),
+                                rabs_prop[0]*cos(theta1g));                 
+                set(r_prop[1],  rabs_prop[1]*sin(theta2g)*cos(phi2g),
+                                rabs_prop[1]*sin(theta2g)*sin(phi2g),
+                                rabs_prop[1]*cos(theta2g));
+                copy(r_prop[2], -1., r_prop[0], -1., r_prop[1]);
+                
+                rhoabs_prop    = rndnorm(rhoabs);
+                rho_theta_prop = uniform_theta(generator);
+                rho_phi_prop   = uniform_phi(generator);
+                set(rho_prop, rhoabs_prop*sin(rho_theta_prop)*cos(rho_phi_prop),
+                              rhoabs_prop*sin(rho_theta_prop)*sin(rho_phi_prop),
+                              rhoabs_prop*cos(rho_theta_prop)  );
+                
+                calcr(rho_prop, r_prop);
+                
+                p_rg = S(vnorm(r1))*S(vnorm(r2)*S(vnorm(r3)));
+                if (uniform(generator)<(p_rg/p_ri)){
+                    copy(rabs, rabs_prop);
+                    dcopy(r, r_prop);
+                    rhoabs = rhoabs_prop;
+                    theta1i = theta1g;
+                    theta2i = theta2g;
+                    rho_theta = rho_theta_prop;
+                    p_ri = p_rg;
+                }
+                
+                dV = rabs[0]*rabs[0]*sin(theta1i)*rabs[1]*rabs[1]*sin(theta2i)*rhoabs*rhoabs*sin(rho_theta);
+                s  += SQR(apsi1())*dV;
+                s0 += SQR(apsi0())*dV;
+        }
+        //s  *=  M_PI*2*M_PI / T(path);
+        //s0 *=  M_PI*2*M_PI / T(path);
+        return s0/s;
+    }
+    
     T integrate(const T& k1, const T& k2, const T& k3, const unsigned long long int& path){
         set_k(k1,k2,k3);
         if (status!=SUCCESS){
             return -1;
         }
         return integrate(path);
+    }
+    
+    T integrateFull(const T& k1, const T& k2, const T& k3, const unsigned long long int& path){
+        set_k(k1,k2,k3);
+        if (status!=SUCCESS){
+            return -1;
+        }
+        return integrateFull(path);
     }
     
     
