@@ -3,6 +3,8 @@
 
 #include <random>
 #include <complex>
+#include <fstream>
+#include <string>
 
 using namespace std;
 
@@ -214,8 +216,11 @@ public:
         return s0/s;
     }
     
-    T integrateFull(const unsigned long long int& path){
+    T integrateFull(const unsigned long long int& path, const string& fileName){
         using param_type = typename decltype(uniform_theta)::param_type;
+        
+        ofstream file;
+        file.open(fileName, ios::out);
 
         T s = 0.;
         T s0 = 0.;
@@ -250,14 +255,17 @@ public:
         T p_ri = S(vnorm(r1))*S(vnorm(r2))*S(vnorm(r3)), p_rg;
         copy(rabs, rabs_prop);
         dcopy(r, r_prop);
+        unsigned long long int ii=0;
         
         for(unsigned long long int i=0;i<path;i++){
                 
                 rabs_prop[0] = abs(rndnorm(rabs[0]));
                 rabs_prop[1] = abs(rndnorm(rabs[1]));
-                phi1g   = uniform_phi(generator);
+                //phi1g   = uniform_phi(generator);
+                 phi1g = M_PI/4.;
                 phi2g   = uniform_phi(generator);
-                theta1g = uniform_theta(generator);
+                //theta1g = uniform_theta(generator);
+            theta1g = M_PI/2.;
                 theta2g = uniform_theta(generator);
                 
                 set(r_prop[0],  rabs_prop[0]*sin(theta1g)*cos(phi1g),
@@ -291,9 +299,16 @@ public:
                 dV = rabs[0]*rabs[0]*sin(theta1i)*rabs[1]*rabs[1]*sin(theta2i)*rhoabs*rhoabs*sin(rho_theta);
                 s  += SQR(apsi1())*dV;
                 s0 += SQR(apsi0())*dV;
+                ii++;
+                if (ii==5000000){
+                    file << i << "," << s0 << "," << s << endl;
+                    ii = 0;
+                }
         }
         //s  *=  M_PI*2*M_PI / T(path);
         //s0 *=  M_PI*2*M_PI / T(path);
+        
+        file.close();
         return s0/s;
     }
     
@@ -305,12 +320,12 @@ public:
         return integrate(path);
     }
     
-    T integrateFull(const T& k1, const T& k2, const T& k3, const unsigned long long int& path){
+    T integrateFull(const T& k1, const T& k2, const T& k3, const unsigned long long int& path, const string& fileName){
         set_k(k1,k2,k3);
         if (status!=SUCCESS){
             return -1;
         }
-        return integrateFull(path);
+        return integrateFull(path, fileName);
     }
     
     
